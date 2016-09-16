@@ -1,0 +1,5 @@
+name: Credomatic API Ecommerce
+type: module
+description: “Credomatic API Ecommerce”
+package: ECommerce_Credomatic
+core: 8.x
