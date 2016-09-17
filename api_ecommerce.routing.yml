@@ -1,7 +1,14 @@
 api_ecommerce.content:
-  path: /ecommerce/{api}
+  path: /ecommerce
   defaults:
     _controller: '\Drupal\api_ecommerce\Controller\ApiController::content'
     _title: 'API Handler'
+  requirements:
+    _permission: 'access content'
+api_ecommerce.admin:
+  path: /ecommerce/admin
+  defaults:
+    _controller: '\Drupal\api_ecommerce\Controller\ApiController::admin'
+    _title: 'API Admin'
   requirements:
     _permission: 'access content'

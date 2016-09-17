@@ -13,8 +13,19 @@ use Drupal\Core\Routing\RouteMatchInterface;
 
 
 class ApiController extends ControllerBase {
-	public function content(RouteMatchInterface $route_match, Request $request, $api) {
+	//$key = "";
+
+	public function content(RouteMatchInterface $route_match, Request $request) {
+		//usar $key en request a Credomatic
 		$headers = array(‘Content-Type’ => $request->getMimeType(‘json’));
-		return new Response(json_encode($api), 200, $headers);
+		return new Response(json_encode("$api"), 200, $headers);
+	}
+
+	public function admin() {
+
+		return array(
+			'#type' => 'markup',
+			'#markup' => t('Administrador de ecommerce'),
+			);
 	}
 };
