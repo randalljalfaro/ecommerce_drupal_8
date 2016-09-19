@@ -1,14 +1,14 @@
-api_ecommerce.content:
-  path: /ecommerce
+api_ecommerce.saleAuthCredit:
+  path: /ecommerce/saleAuthCredit
   defaults:
-    _controller: '\Drupal\api_ecommerce\Controller\ApiController::content'
-    _title: 'API Handler'
+    _controller: '\Drupal\api_ecommerce\Controller\SaleAuthCreditController::response'
+    _title: 'Sale, authorization and credit transaction handlers'
   requirements:
     _permission: 'access content'
 api_ecommerce.admin:
   path: /ecommerce/admin
   defaults:
-    _controller: '\Drupal\api_ecommerce\Controller\ApiController::admin'
-    _title: 'API Admin'
+    _form: '\Drupal\api_ecommerce\Form\EcommerceAdministrationPanel' 
+    _title: 'Ecommerce administration panel'
   requirements:
     _permission: 'access content'
