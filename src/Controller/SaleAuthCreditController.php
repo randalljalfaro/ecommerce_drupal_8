@@ -39,14 +39,14 @@ class SaleAuthCreditController extends ControllerBase {
 	}
 
 	function post(Request $request){
-		$this->extractData($credomaticRequest, json_decode($request->getContent()));
-		$this->setPaymentConfiguration($credomaticRequest);
-		$validation = $this->validPayment($credomaticRequest);
+		$this->extractData($dataRequest, json_decode($request->getContent()));
+		$this->setPaymentConfiguration($dataRequest);
+		$validation = $this->validPayment($dataRequest);
 		$headers = array(‘Content-Type’ => $request->getMimeType(‘json’));
 		$response = [];
-		if(gettype($validation)!="string"){
+		if($validation){
 			$response["result"] = "ok";
-			$response["data"] = $credomaticRequest;
+			$response["data"] = $dataRequest;
 		}else{
 			$response["result"] = "error";
 			$response["data"] = $validation;
@@ -54,10 +54,18 @@ class SaleAuthCreditController extends ControllerBase {
 		return new Response(json_encode($response), 200, $headers);
 	}
 
-
+	function credomaticRequest($dataRequest){
+		
+	}
+	
 	function validPayment($object) {
     	//Revisar si falta alguna variable de los datos de entrada
 		if (is_null($object["type"])) {
+			return 'Missing attribute: Transaction type';
+		}
+		if ($object["type"]!="sale"||
+			$object["type"]!="auth"||
+			$object["type"]!="credit") {
 			return 'Missing attribute: Transaction type';
 		}
 
