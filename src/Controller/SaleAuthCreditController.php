@@ -26,71 +26,84 @@ class SaleAuthCreditController extends ControllerBase {
 		switch ($request->getMethod())
 		{
 			case 'POST':
-			return $this->post($request);
+			return $this->postResponse($request);
 			break;
 
 			default:
-			$headers = array(‘Content-Type’ => $request->getMimeType(‘json’));
-			$response["result"] = "error";
-			$response["data"] = "There is no controller for this request";
-			return new Response(json_encode($response), 200, array());
+			return $this->createResponse("error", "There is no controller for this request.", $request);
 			break;
 		}
 	}
 
-	function post(Request $request){
+	function postResponse(Request $request){
 		$this->extractData($dataRequest, json_decode($request->getContent()));
-		$this->setPaymentConfiguration($dataRequest);
 		$validation = $this->validPayment($dataRequest);
-		$headers = array(‘Content-Type’ => $request->getMimeType(‘json’));
-		$response = [];
 		if($validation){
-			$response["result"] = "ok";
-			$response["data"] = $dataRequest;
-		}else{
-			$response["result"] = "error";
-			$response["data"] = $validation;
+			$this->setPaymentConfiguration($dataRequest);
+			return $this->credomaticRequest($dataRequest, $request);
+			//return $this->createResponse("ok", $dataRequest, $request);
 		}
-		return new Response(json_encode($response), 200, $headers);
+		return $this->createResponse("error", $validation, $request);
 	}
 
-	function credomaticRequest($dataRequest){
+	function credomaticRequest($dataRequest, $request){
+		$client = \Drupal::httpClient();
 		
+		try {
+			$response = $client->post(
+				"https://credomatic.compassmerchantsolutions.com/api/transact.php",
+				array(
+					'headers' => array(
+						/*'Accept' => 'application/json',
+						'Content-type' => 'application/json'*/
+						'Content-type' => 'application/x-www-form-urlencoded',
+						'Accept' => 'text/plain'
+						),
+					'body' => json_encode($dataRequest)
+					)
+				);
+			$dataResponse = (string) $response->getBody();
+			return $this->createResponse("ok", $dataResponse, $request);
+		}
+		catch (RequestException $exception) {
+			return $this->createResponse("error", $exception, $request);
+		}
 	}
-	
+
 	function validPayment($object) {
-    	//Revisar si falta alguna variable de los datos de entrada
+		//************************************************
 		if (is_null($object["type"])) {
 			return 'Missing attribute: Transaction type';
 		}
-		if ($object["type"]!="sale"||
-			$object["type"]!="auth"||
-			$object["type"]!="credit") {
-			return 'Missing attribute: Transaction type';
+		if ($object["type"]!="sale" || $object["type"]!="auth" || $object["type"]!="credit") {
+			return 'Invalid attribute: Transaction type';
 		}
 
+		//************************************************
 		if (is_null($object["ccnumber"])) {
 			return 'Missing attribute: Credit card number';
 		}
-
 		/*if (false == $this->get_card_type($object->ccnumber)) {
 			return 'Invalid attribute: Credit card number';
 		}*/
 
+		//************************************************
 		if (is_null($object["ccexp"])) {
 			return 'Missing attribute: Credit card expiration date';
 		}
 
-		if (is_null($object["cvv"])) {
+		//************************************************
+		if (is_null($object["amount"])) {
+			return 'Missing attribute: Amount';
+		}
+
+		/*if (is_null($object["cvv"])) {
 			return 'Missing attribute: CVV';
 		}
 
 		if (is_null($object["orderid"])) {
 			return 'Missing attribute: Order Id';
-		}
-		if (is_null($object["amount"])) {
-			return 'Missing attribute: Amount';
-		}
+		}*/
 		return true;
 	}
 
@@ -98,9 +111,9 @@ class SaleAuthCreditController extends ControllerBase {
 		$object["type"] = $data->type;
 		$object["ccnumber"] = $data->ccnumber;
 		$object["ccexp"] = $data->ccexp;
-		$object["cvv"] = $data->cvv;
-		$object["orderid"] = $data->orderid;
 		$object["amount"] = $data->amount;
+		//$object["cvv"] = $data->cvv;
+		//$object["orderid"] = $data->orderid;
 	}
 
 	function getHash($object){
@@ -111,12 +124,11 @@ class SaleAuthCreditController extends ControllerBase {
 
 	function setPaymentConfiguration(&$object){
 		//***Variables de configuración***
-		$object["key_id"] = "6368074";
+		$object["key_id"] = 449510;
     	//$object["processor_id"] = "123123";
-		$object["redirect"] = "https://credomatic.compassmerchantsolutions.com/api/transact.php";
+		$object["redirect"] = "https://quickphoto.ddns.net/quickphoto";
 
-
-		//***Variables agregadas***
+		//***Variables generadas dinámicamente***
 		$object["time"] = time();
 		$object["hash"] = $this->getHash($object);
 	}
@@ -148,5 +160,12 @@ class SaleAuthCreditController extends ControllerBase {
 		else {
 			return false;
 		}
+	}
+
+	function createResponse($result, $data, $request){
+		$response["result"] = $result;
+		$response["data"] = $data;
+		$headers = array(‘Content-Type’ => $request->getMimeType(‘json’));
+		return new Response(json_encode($response), 200, $headers);
 	}
 };
