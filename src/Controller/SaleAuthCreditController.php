@@ -27,7 +27,7 @@ class SaleAuthCreditController extends ControllerBase {
 			break;
 
 			default:
-			return $this->createResponse("error", "There is no controller for this request.", $request);
+			return $this->createJsonResponse("error", "There is no controller for this request.");
 			break;
 		}
 	}
@@ -37,45 +37,57 @@ class SaleAuthCreditController extends ControllerBase {
 		$validation = $this->validPayment($dataRequest);
 		if($validation){
 			$this->setPaymentConfiguration($dataRequest);
-			return $this->credomaticRequest($dataRequest, $request);
-			//return $this->createResponse("ok", $dataRequest, $request);
+			return $this->credomaticRequest($dataRequest);
+			//return $this->createJsonResponse("ok", $dataRequest);
 		}
-		return $this->createResponse("error", $validation, $request);
+		return $this->createJsonResponse("error", $validation);
 	}
 
-	function credomaticRequest($dataRequest, $request){
+	function credomaticRequest($dataRequest){
 		$url = "https://credomatic.compassmerchantsolutions.com/api/transact.php";
-		$data = [
-		'hash' => urlencode($dataRequest["hash"]),
-		'time' => urlencode($dataRequest["time"]),
-		'ccnumber' => urlencode($dataRequest["ccnumber"]),
-		'ccexp' => urlencode($dataRequest["ccexp"]),
-		'amount' => urlencode($dataRequest["amount"]),
-		'type' => urlencode($dataRequest["type"]),
-		'key_id' => urlencode($dataRequest["key_id"]),
-		'orderid' => urlencode($dataRequest["orderid"]),
-		'proccesor_id' => urlencode($dataRequest["proccesor_id"]),
-		'redirect' => urlencode($dataRequest["redirect"])
-		];
-		foreach($data as $key=>$value) { $fields_string .= $key.'='.$value.'&'; }
+		foreach($dataRequest as $key=>$value) { $fields_string .= $key.'='.$value.'&'; }
 		rtrim($fields_string, '&');
 
+		//Configuración de request a Credomatic
 		$ch = curl_init();
-		curl_setopt($ch,CURLOPT_URL, $url);
-		curl_setopt($ch,CURLOPT_POST, count($data));
-		curl_setopt($ch,CURLOPT_POSTFIELDS, $fields_string);
+		curl_setopt($ch, CURLOPT_URL, $url);
+		curl_setopt($ch, CURLOPT_POST, true);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-		$result = curl_exec($ch);
+		curl_setopt($ch, CURLOPT_VERBOSE, true);
+		curl_setopt($ch, CURLOPT_HEADER, true);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
+		curl_setopt($ch, CURLOPT_HTTPHEADER, 
+			array(
+				'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+				'Content-Type: application/x-www-form-urlencoded',
+				'Accept-Encoding: gzip, deflate, br'
+				)
+			);
+		$response = curl_exec($ch);
 		$reponseInfo = curl_getinfo($ch);
 		curl_close($ch);
 
-		$r = [
-			"dataRequest" => $dataRequest,
-			"reponseInfo" => $reponseInfo
+		//Sacar información del post
+		//$html = new DOMDocument();
+		//$html->loadHTML($response);
+
+		$debugInformation = [
+		"dataRequest" => $dataRequest,
+		"reponseInfo" => $reponseInfo,
+		"response" => $response,
+		"html" => $html
 		];
 
-		return $this->createResponse("ok",$r, $request);
+		return $this->createJsonResponse("ok", $debugInformation);
+	}
 
+	function extractData(&$object, $data){
+		$object["type"] = $data->type;
+		$object["ccnumber"] = $data->ccnumber;
+		$object["ccexp"] = $data->ccexp;
+		$object["amount"] =  (string) number_format($data->amount, 2);
+		//$object["cvv"] = $data->cvv;
+		//$object["orderid"] = $data->orderid;
 	}
 
 	function validPayment($object) {
@@ -105,44 +117,35 @@ class SaleAuthCreditController extends ControllerBase {
 			return 'Missing attribute: Amount';
 		}
 
-		/*if (is_null($object["cvv"])) {
+		/*
+		if (is_null($object["cvv"])) {
 			return 'Missing attribute: CVV';
 		}
 
 		if (is_null($object["orderid"])) {
 			return 'Missing attribute: Order Id';
-		}*/
+		}
+		*/
 		return true;
-	}
-
-	function extractData(&$object, $data){
-		$object["type"] = $data->type;
-		$object["ccnumber"] = $data->ccnumber;
-		$object["ccexp"] = $data->ccexp;
-		$object["amount"] = $data->amount;
-		//$object["cvv"] = $data->cvv;
-		//$object["orderid"] = $data->orderid;
-	}
-
-	function getHash($object){
-		$str = "" . $object["orderid"] . "|" . $object["amount"] . "|";
-		$str = $str . $object["time"] . "|" . $object["key_hash"];
-		return md5($str);
 	}
 
 	function setPaymentConfiguration(&$object){
 		//***Variables de configuración***
 		$object["key_id"] = "6368074";
-		$object["key_hash"] = "3Yep7vKc7Y3vGP37TsZ83M3dFGPfcbCj";
-		$object["processor_id"] = "INET1125";
+		$object["proccesor_id"] = "INET1125";
 		$object["orderid"] = "CredomaticTest";
-		//$object["redirect"] = "https://quickphoto.ddns.net/quickphoto/redirect";
-		$object["redirect"] = "http://quickphoto.ddns.net/quickphoto/redirect";
-
+		$object["redirect"] = urlencode("http://quickphoto.ddns.net/quickphoto/redirect");
 
 		//***Variables generadas dinámicamente***
 		$object["time"] = time();
-		$object["hash"] = $this->getHash($object);
+		$object["hash"] = $this->createHash($object);
+	}
+
+	function createHash($object){
+		$key_hash = "3Yep7vKc7Y3vGP37TsZ83M3dFGPfcbCj";
+		$str = "" . $object["orderid"] . "|" .  $object["amount"] . "|";
+		$str = $str . $object["time"] . "|" . $key_hash;
+		return md5($str);
 	}
 
 	function get_card_type($numberParam) {
@@ -174,10 +177,10 @@ class SaleAuthCreditController extends ControllerBase {
 		}
 	}
 
-	function createResponse($result, $data, $request){
+	function createJsonResponse($result, $data){
 		$response["result"] = $result;
 		$response["data"] = $data;
-		$headers = array("Content-Type" => $request->getMimeType("json"));
+		$headers = array("Content-Type" => "application/json");
 		return new Response(json_encode($response), 200, $headers);
 	}
 
