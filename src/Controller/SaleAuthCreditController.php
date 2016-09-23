@@ -14,9 +14,6 @@ use Drupal\Component\Serialization\Json;
 
 
 class SaleAuthCreditController extends ControllerBase {
-	//
-	//public $key = "keyValue";
-	//public $address = "credomatic.com";
 
 	public function response(RouteMatchInterface $route_match, Request $request) {
 		return $this->handle($request);
@@ -47,27 +44,38 @@ class SaleAuthCreditController extends ControllerBase {
 	}
 
 	function credomaticRequest($dataRequest, $request){
-		$client = \Drupal::httpClient();
-		
-		try {
-			$response = $client->post(
-				"https://credomatic.compassmerchantsolutions.com/api/transact.php",
-				array(
-					'headers' => array(
-						/*'Accept' => 'application/json',
-						'Content-type' => 'application/json'*/
-						'Content-type' => 'application/x-www-form-urlencoded',
-						'Accept' => 'text/plain'
-						),
-					'body' => json_encode($dataRequest)
-					)
-				);
-			$dataResponse = (string) $response->getBody();
-			return $this->createResponse("ok", $dataResponse, $request);
-		}
-		catch (RequestException $exception) {
-			return $this->createResponse("error", $exception, $request);
-		}
+		$url = "https://credomatic.compassmerchantsolutions.com/api/transact.php";
+		$data = [
+		'hash' => urlencode($dataRequest["hash"]),
+		'time' => urlencode($dataRequest["time"]),
+		'ccnumber' => urlencode($dataRequest["ccnumber"]),
+		'ccexp' => urlencode($dataRequest["ccexp"]),
+		'amount' => urlencode($dataRequest["amount"]),
+		'type' => urlencode($dataRequest["type"]),
+		'key_id' => urlencode($dataRequest["key_id"]),
+		'orderid' => urlencode($dataRequest["orderid"]),
+		'proccesor_id' => urlencode($dataRequest["proccesor_id"]),
+		'redirect' => urlencode($dataRequest["redirect"])
+		];
+		foreach($data as $key=>$value) { $fields_string .= $key.'='.$value.'&'; }
+		rtrim($fields_string, '&');
+
+		$ch = curl_init();
+		curl_setopt($ch,CURLOPT_URL, $url);
+		curl_setopt($ch,CURLOPT_POST, count($data));
+		curl_setopt($ch,CURLOPT_POSTFIELDS, $fields_string);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+		$result = curl_exec($ch);
+		$reponseInfo = curl_getinfo($ch);
+		curl_close($ch);
+
+		$r = [
+			"dataRequest" => $dataRequest,
+			"reponseInfo" => $reponseInfo
+		];
+
+		return $this->createResponse("ok",$r, $request);
+
 	}
 
 	function validPayment($object) {
@@ -117,16 +125,20 @@ class SaleAuthCreditController extends ControllerBase {
 	}
 
 	function getHash($object){
-		$str = "" . $object["orderid"] . "|" . $object["amount"];
-		$str += "" . $object["time"] . "|" . $object["Key"];
+		$str = "" . $object["orderid"] . "|" . $object["amount"] . "|";
+		$str = $str . $object["time"] . "|" . $object["key_hash"];
 		return md5($str);
 	}
 
 	function setPaymentConfiguration(&$object){
 		//***Variables de configuración***
-		$object["key_id"] = 449510;
-    	//$object["processor_id"] = "123123";
-		$object["redirect"] = "https://quickphoto.ddns.net/quickphoto";
+		$object["key_id"] = "6368074";
+		$object["key_hash"] = "3Yep7vKc7Y3vGP37TsZ83M3dFGPfcbCj";
+		$object["processor_id"] = "INET1125";
+		$object["orderid"] = "CredomaticTest";
+		//$object["redirect"] = "https://quickphoto.ddns.net/quickphoto/redirect";
+		$object["redirect"] = "http://quickphoto.ddns.net/quickphoto/redirect";
+
 
 		//***Variables generadas dinámicamente***
 		$object["time"] = time();
@@ -165,7 +177,13 @@ class SaleAuthCreditController extends ControllerBase {
 	function createResponse($result, $data, $request){
 		$response["result"] = $result;
 		$response["data"] = $data;
-		$headers = array(‘Content-Type’ => $request->getMimeType(‘json’));
+		$headers = array("Content-Type" => $request->getMimeType("json"));
 		return new Response(json_encode($response), 200, $headers);
+	}
+
+	function createLog($filename, $value){
+		$myfile = fopen($filename, "w");
+		fwrite($myfile, $value);
+		fclose($myfile);
 	}
 };

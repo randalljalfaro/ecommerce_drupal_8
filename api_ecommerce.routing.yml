@@ -5,6 +5,15 @@ api_ecommerce.saleAuthCredit:
     _title: 'Sale, authorization and credit transaction handlers'
   requirements:
     _permission: 'access content'
+
+api_ecommerce.redirect:
+  path: /ecommerce/redirect
+  defaults:
+    _controller: '\Drupal\api_ecommerce\Controller\RedirectController::response'
+    _title: ''
+  requirements:
+    _permission: 'access content'
+
 api_ecommerce.admin:
   path: /ecommerce/admin
   defaults:
